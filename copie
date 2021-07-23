@@ -1,0 +1,65 @@
+// Discord & Client & Fs & Commands
+const Discord = require('discord.js')
+const fs = require('fs')
+const Client = new Discord.Client()
+Client.commands = new Discord.Collection()
+
+// Utils 
+const utils = require('./config')
+
+// Charger les commandes 
+
+const loadCommands = (dir = './commands/') => {
+    fs.readdirSync(dir).forEach(dirs => {
+        const commands = fs.readdirSync(`${dir}/${dirs}/`).filter(file => file.endsWith('.js'))
+
+        for (const file of commands){
+            const getFileName = require(`${dir}/${dirs}/${file}`)
+            Client.commands.set(getFileName.help.name, getFileName)
+            console.log(`Commande chargée : ${getFileName.help.name}`)
+    }
+})
+}
+
+
+loadCommands()
+
+
+// Event : On Ready
+
+Client.on('ready', () => {
+    console.log(`Client : ${Client.user.tag}`)
+    Client.user.setActivity('RedBot')
+})
+
+
+// Event : On Message
+
+Client.on('message', message => {
+    if(!message.content.startsWith(utils.prefix) || message.author.bot) return
+
+    const args = message.content.slice(utils.prefix.length).split(/ +/)
+    
+    const commandName = args.shift().toLowerCase()
+    const command = Client.commands.get(commandName) || Client.commands.find(cmd => cmd.help.aliases && cmd.help.aliases.includes(commandName))
+
+    if (!command) return
+    // if (!Client.commands.has(commandName)) return 
+
+    if (command.help.args && !args.length) {
+        let noArgsReply = `${command.help.noArgsMsg}`
+        if (command.help.usage) noArgsReply += `\nUsage correct : \`${utils.prefix}${command.help.name} ${command.help.usage}\``
+        return  message.channel.send(noArgsReply)
+    }
+
+    if (command.help.permission && !message.member.hasPermission(command.help.permission)){
+        return message.channel.send(`Il vous manque la permission ${command.help.permission}`)
+    }
+
+    
+
+    command.run(message, args, Client)
+})
+
+// Login
+Client.login(utils.token)
